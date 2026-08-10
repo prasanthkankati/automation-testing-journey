@@ -218,3 +218,66 @@ Done attempting to access array
 
 ### Why this matters for automation
 Selenium throws exceptions constantly — element not found, timeout waiting for a page to load, stale element references. A test suite without proper exception handling crashes entirely on the first failure. A well-built framework catches specific exceptions, logs a clear failure reason, and moves on to the next test — this is the difference between a suite that gives you a useful failure report and one that just dies silently on test #1 of 200.
+
+---
+
+## Topic: File I/O (Reading Files)
+
+### Theory
+Real automation frameworks read test data from external files (Excel, CSV, JSON, plain text) instead of hardcoding it — this is the foundation of **data-driven testing**, where the same test logic runs against many different data sets without touching the code.
+
+**The reading chain (analogy: reading a book):**
+- **File path (String)** — the book sitting on a shelf, not open yet
+- **FileReader** — opens the file, reads raw characters
+- **BufferedReader** — wraps around FileReader, adds the ability to read whole lines at once via `readLine()`
+
+You always build them together — FileReader does the actual opening; BufferedReader wraps it for convenient line-by-line reading.
+
+**Checked exceptions:** `IOException` is a *checked* exception — Java's compiler forces you to handle it (via try/catch) or the code won't even compile. This is different from runtime exceptions like array-index errors, which compile fine but can crash later. File operations are risky (file missing, no permission) so Java makes you acknowledge that risk upfront.
+
+### Code
+```java
+package org.example;
+
+import java.io.FileReader;
+import java.io.BufferedReader;
+import java.io.IOException;
+
+public class FileReadingPractice {
+
+    public static void main(String[] args) {
+        BufferedReader br = null;   // declared outside try, so finally can reach it
+
+        try {
+            FileReader fr = new FileReader("src/main/resources/testdata.txt");
+            br = new BufferedReader(fr);
+
+            String line;
+            while ((line =
+
+
+
+Login Test
+Checkout Test
+Search Test
+
+
+**Output:**
+
+Login Test
+Checkout Test
+Search Test
+
+
+Login Test
+Checkout Test
+Search Test
+
+
+**Output:**
+
+Login Test
+Checkout Test
+Search Test
+
+
