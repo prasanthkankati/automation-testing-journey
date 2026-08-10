@@ -161,3 +161,60 @@ public class PageDemo {
 Opening the 
 
 LoginPage
+
+
+
+---
+
+## Topic: Exception Handling (try / catch / finally)
+
+### Theory
+An exception is a runtime error — code that's valid and compiles fine, but something goes wrong while it's actually running (e.g., accessing an array index that doesn't exist). Without handling it, the program crashes immediately with a stack trace and stops execution (exit code 1).
+
+- **try** — wraps code that might fail
+- **catch** — runs only if an exception occurs; lets you handle it gracefully instead of crashing
+- **finally** — always runs, whether an exception occurred or not; used for cleanup (e.g., closing a browser in Selenium regardless of test outcome)
+
+### Code
+```java
+package org.example;
+
+public class ExceptionHandling {
+
+    public static void main(String[] args) {
+        int[] arr = {10, 20, 30};
+
+        try {
+            System.out.println(arr[5]);   // throws ArrayIndexOutOfBoundsException
+        } catch (Exception e) {
+            System.out.println("Error: Tried to access an index that doesn't exist - " + e.getMessage());
+        } finally {
+            System.out.println("Done attempting to access array");
+        }
+    }
+}
+```
+
+**Output:**
+
+
+Error: Tried to access an index that doesn't exist - Index 5 out of bounds for length 3
+Done attempting to access array
+
+
+### Comparison — with vs. without try/catch
+| Without try/catch | With try/catch |
+|---|---|
+| Program crashes immediately | Program continues running |
+| Ugly stack trace printed | Clean, custom error message |
+| Exit code 1 (failure) | Exit code 0 (success) |
+
+### Bugs I hit and fixed
+| Bug | Cause | Fix / Lesson |
+|---|---|---|
+| `catch` block re-threw the exception (`throw new RuntimeException(e)`) | Misunderstood the purpose of catch | Catch should *handle* the problem, not just relabel and crash anyway |
+| Missing `public` on `main` | Same mistake as Interfaces topic | Commit `public static void main(String[] args)` to memory |
+| Output didn't match latest code (stale build, again) | File wasn't saved before running | Turn on auto-save in IntelliJ settings to eliminate this permanently |
+
+### Why this matters for automation
+Selenium throws exceptions constantly — element not found, timeout waiting for a page to load, stale element references. A test suite without proper exception handling crashes entirely on the first failure. A well-built framework catches specific exceptions, logs a clear failure reason, and moves on to the next test — this is the difference between a suite that gives you a useful failure report and one that just dies silently on test #1 of 200.
