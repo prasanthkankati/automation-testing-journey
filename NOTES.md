@@ -102,3 +102,62 @@ System.out.println(browserTree);   // [Chrome, Firefox, Safari]
 
 ### Key takeaway
 Predict expected output *before* running, then compare to actual — this is a core debugging habit, not just a learning exercise.
+
+
+---
+
+## Topic: Interfaces & Page Object Pattern (mini version)
+
+### What is an interface?
+**Theory:** An interface is a contract — it declares *what* methods a class must have, but never *how* they work (no method bodies). A class that implements an interface must provide real code for every method the interface declares. Interfaces can't have constructors and can't be instantiated directly.
+
+**Code — the interface (contract):**
+```java
+package org.example;
+
+public interface BasePage {
+    void open();
+    String getTitle();
+}
+```
+
+### Implementing the interface
+**Theory:** A class "signs" the contract using `implements`. It must then provide real bodies for every method the interface declared. Important rule: methods in an interface are automatically `public`, so implementing classes must also mark them `public` — a compile error occurs otherwise ("attempting to assign weaker access privileges").
+
+**Code — the class (real behavior):**
+```java
+package org.example;
+
+public class LoginPage implements BasePage {
+
+    public void open() {
+        System.out.println("Opening the loginPage");
+    }
+
+    public String getTitle() {
+        return "LoginPage";
+    }
+}
+```
+
+### Using it — separate runner class
+**Theory:** Real frameworks keep "page" classes (what a page can do) separate from "runner/test" classes (what actually calls those actions). Page classes never contain `main`.
+
+**Code:**
+```java
+package org.example;
+
+public class PageDemo {
+    public static void main(String[] args) {
+        LoginPage lp = new LoginPage();
+        lp.open();
+        System.out.println(lp.getTitle());
+    }
+}
+```
+
+**Output:**
+
+Opening the 
+
+LoginPage
