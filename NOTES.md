@@ -280,4 +280,152 @@ Login Test
 Checkout Test
 Search Test
 
+---
 
+## Topic: Selenium WebDriver Setup + Polymorphism
+
+### Part 1: Adding Selenium to a Maven project
+
+**Theory:** Selenium isn't part of core Java — it's an external library. Maven manages external libraries ("dependencies") through `pom.xml`. Declaring a dependency tells Maven: download this specific library (and everything it needs) from Maven's central repository, and make it available to your code.
+
+**Code — pom.xml dependency block:**
+```xml
+<dependencies>
+    <dependency>
+        <groupId>org.seleniumhq.selenium</groupId>
+        <artifactId>selenium-java</artifactId>
+        <version>4.27.0</version>
+    </dependency>
+</dependencies>
+```
+- `groupId` — the organization that publishes the library
+- `artifactId` — the specific library name
+- `version` — which release of that library to use
+
+**Important structural rule:** `<dependencies>` must sit as a direct child of `<project>`, as a sibling to `<properties>` — NOT nested inside `<properties>`. Each top-level pom.xml section has a specific meaning to Maven's parser; nesting the wrong section inside another causes a "Non-parseable POM" XML error.
+
+---
+
+### Part 2: What a WebDriver actually does
+
+**Theory:** Selenium needs a "driver" — a translator program between your Java code and the actual browser. Since Selenium 4.6+, this is handled automatically by **Selenium Manager** — it detects your installed browser version and downloads the matching driver behind the scenes. No manual ChromeDriver.exe downloads needed.
+
+**Code — first working Selenium script:**
+```java
+package org.example;
+
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+
+public class FirstSeleniumTest {
+
+    public static void main(String[] args) {
+        WebDriver driver = new ChromeDriver();
+        driver.get("https://www.saucedemo.com");
+
+        System.out.println("Page title is: " + driver.getTitle());
+
+        driver.quit();
+    }
+}
+```
+
+**What happens when `new ChromeDriver()` runs, step by step:**
+1. Selenium Manager detects installed Chrome version
+2. Finds/downloads the matching driver executable
+3. Starts that driver as a background process
+4. That driver process opens a real Chrome window
+5. Sets up a live communication channel (WebDriver protocol, over HTTP) between your Java code and the actual browser
+
+This is fundamentally different from a normal object like `new ArrayList<>()` — it's not just data in memory, it's controlling a real external process on your machine.
+
+**Method reference:**
+- `driver.get(url)` — navigates to a URL
+- `driver.getTitle()` — returns the page's title as a String
+- `driver.quit()` — closes the browser and ends the session (always call this — leaving browser sessions open wastes memory and can cause issues across a long test run)
+
+---
+
+### Part 3: Polymorphism
+
+**Definition:** "Poly" = many, "morph" = forms. Polymorphism means **the same line of code can produce different behavior depending on the actual object behind it**, even though the code itself never changes.
+
+**Simple example (Animal):**
+```java
+public interface Animal {
+    void makeSound();
+}
+
+public class Dog implements Animal {
+    public void makeSound() { System.out.println("Woof!"); }
+}
+
+public class Cat implements Animal {
+    public void makeSound() { System.out.println("Meow!"); }
+}
+```
+```java
+Animal a1 = new Dog();
+Animal a2 = new Cat();
+
+a1.makeSound();   // Woof!
+a2.makeSound();   // Meow!
+```
+Same declared type (`Animal`), same method call (`makeSound()`), different actual behavior — because the real object underneath differs.
+
+**In my own code — BasePage/LoginPage:**
+```java
+BasePage page = new LoginPage();
+page.open();   // runs LoginPage's specific open() implementation
+```
+
+**In Selenium — WebDriver/ChromeDriver:**
+```java
+WebDriver driver = new ChromeDriver();
+driver.get("https://...");   // runs ChromeDriver's implementation of get()
+
+// If swapped:
+WebDriver driver = new FirefoxDriver();
+driver.get("https://...");   // same line, but now controls Firefox instead
+```
+
+**Key vocabulary:**
+- `driver` is a **variable reference** — its *declared type* is the interface (`WebDriver`), but it *points to* an object of a concrete implementing class (`ChromeDriver`)
+- This — a parent/interface-typed variable referring to a child/implementing-class object — IS polymorphism in Java terms
+
+**Proof of understanding — method parameters accept any implementing class:**
+```java
+void runTest(WebDriver driver) {
+    driver.get("https://www.saucedemo.com");
+}
+
+runTest(new ChromeDriver());     // valid
+runTest(new FirefoxDriver());    // also valid, no code change needed
+```
+Java only checks that the passed object fulfills the declared interface type — it doesn't care which concrete class actually provided that fulfillment.
+
+**Why this matters in real frameworks (the actual interview-worthy point):**
+This is exactly how **cross-browser testing** works. A framework has one central setup method that picks which browser to instantiate based on config:
+```java
+WebDriver driver;
+if (browserName.equals("chrome")) {
+    driver = new ChromeDriver();
+} else if (browserName.equals("firefox")) {
+    driver = new FirefoxDriver();
+}
+```
+Every test method in the entire suite is written using only `driver.get(...)`, `driver.findElement(...)`, etc. — never knowing or caring which browser is actually running. Without polymorphism, you'd need to duplicate the entire test suite once per browser.
+
+**How to recognize if something in code is an interface:**
+1. Ctrl+Click (Cmd+Click on Mac) on the type name in IntelliJ — jumps to its definition; if it says `public interface X`, it's an interface
+2. IntelliJ shows a different icon for interfaces vs. classes in the project tree/autocomplete
+3. Naming conventions are NOT reliable — Java's own standard types (`List`, `Map`, `Set`, `WebDriver`) are all interfaces with no special prefix
+
+### Bugs I hit and fixed
+| Bug | Cause | Fix / Lesson |
+|---|---|---|
+| "Non-parseable POM" error | `<dependencies>` nested inside `<properties>` instead of as a sibling | Each pom.xml section has a specific meaning; check structure, not just tag spelling |
+| Duplicate `<dependencies>` tag | Copy-paste error created two opening tags | XML requires exactly one matching closing tag per opening tag |
+
+### Interview-ready summary (say this out loud to practice)
+"Polymorphism means a variable declared as an interface type can hold any object that implements that interface, and calling a method on it runs whichever implementation that specific object actually provides. In Selenium, `WebDriver driver = new ChromeDriver()` is a real-world example — my test code is written entirely against the `WebDriver` interface, so switching browsers, or even switching automation tools that follow a similar pattern, requires changing only the object creation line, not the rest of my test logic. This is what enables cross-browser testing frameworks to scale without duplicating code."
