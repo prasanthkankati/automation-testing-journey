@@ -429,3 +429,100 @@ Every test method in the entire suite is written using only `driver.get(...)`, `
 
 ### Interview-ready summary (say this out loud to practice)
 "Polymorphism means a variable declared as an interface type can hold any object that implements that interface, and calling a method on it runs whichever implementation that specific object actually provides. In Selenium, `WebDriver driver = new ChromeDriver()` is a real-world example — my test code is written entirely against the `WebDriver` interface, so switching browsers, or even switching automation tools that follow a similar pattern, requires changing only the object creation line, not the rest of my test logic. This is what enables cross-browser testing frameworks to scale without duplicating code."
+
+---
+
+## Topic: First Real Selenium Test — Login Automation
+
+### Theory
+Interacting with a page requires two things:
+1. **A locator** — tells Selenium where an element is (By.id, By.name, By.className, By.xpath, etc.)
+2. **An action** — what to do once found (.click(), .sendKeys(), .getText(), etc.)
+
+`driver.findElement(By.locatorType("value"))` returns a `WebElement` object; you call actions directly on that returned object.
+
+**Finding real locators:** right-click an element in the actual browser → Inspect → read its HTML attributes (id, name, class) from DevTools. This is the manual-tester skill of "reading a page's structure," now applied to automation.
+
+### Code
+```java
+package org.example;
+
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+
+public class FirstSeleniumTest {
+
+    public static void main(String[] args) {
+        WebDriver driver = new ChromeDriver();
+        driver.get("https://www.saucedemo.com");
+
+        driver.findElement(By.id("user-name")).sendKeys("standard_user");
+        driver.findElement(By.id("password")).sendKeys("secret_sauce");
+        driver.findElement(By.id("login-button")).click();
+
+        System.out.println("Current URL after login: " + driver.getCurrentUrl());
+
+        driver.quit();
+    }
+}
+```
+
+**Output:**
+
+### Part D: First Real Selenium Test — Login Automation
+
+**Theory:** Interacting with a page requires a **locator** (`By.id`, `By.name`, `By.xpath`, etc.) to find an element, and an **action** (`.click()`, `.sendKeys()`, `.getText()`) to do something with it. `driver.findElement(By.locatorType("value"))` returns a `WebElement` you call actions on directly. Find real locators by right-clicking an element in the browser → Inspect → reading its HTML attributes.
+
+**Code:**
+```java
+package org.example;
+
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+
+public class FirstSeleniumTest {
+
+    public static void main(String[] args) {
+        WebDriver driver = new ChromeDriver();
+        driver.get("https://www.saucedemo.com");
+
+        driver.findElement(By.id("user-name")).sendKeys("standard_user");
+        driver.findElement(By.id("password")).sendKeys("secret_sauce");
+        driver.findElement(By.id("login-button")).click();
+
+        System.out.println("Current URL after login: " + driver.getCurrentUrl());
+
+        driver.quit();
+    }
+}
+```
+
+**Output:**
+
+Current URL after login: https://www.saucedemo.com/inventory.html
+
+
+**close() vs quit():**
+| Method | What it does |
+|---|---|
+| `driver.close()` | Closes only the current tab/window; driver process may keep running in background |
+| `driver.quit()` | Closes all windows AND properly ends the entire WebDriver session |
+
+---
+
+### Bugs & lessons log (full topic)
+| Bug | Cause | Fix / Lesson |
+|---|---|---|
+| "Non-parseable POM" error | `<dependencies>` nested inside `<properties>` instead of as a sibling | Each pom.xml section has a specific meaning; check structure, not just tag spelling |
+| Duplicate `<dependencies>` tag | Copy-paste error created two opening tags | XML requires exactly one matching closing tag per opening tag |
+| Verified login using `getTitle()` — identical before/after | saucedemo.com uses the same page title on every page | Never verify success with something that doesn't actually change — use `getCurrentUrl()` instead |
+| "Connection reset" warning after test | Used `driver.close()` instead of `driver.quit()` | `quit()` properly ends the whole session; `close()` only shuts the visible window |
+| CDP version warning in console | Selenium's bundled DevTools module doesn't exactly match installed Chrome version | Harmless for basic actions — only matters for advanced network-interception features later |
+
+### Interview-ready summary (say this out loud to practice)
+"Polymorphism means a variable declared as an interface type can hold any object that implements that interface, and calling a method on it runs whichever implementation that specific object actually provides. In Selenium, `WebDriver driver = new ChromeDriver()` is a real-world example — my test code is written entirely against the `WebDriver` interface, so switching browsers requires changing only the object creation line, not the rest of my test logic. This is what enables cross-browser testing frameworks to scale without duplicating code."
+
+### Why this matters for automation
+This is a real, working login automation — the exact shape of production Selenium tests, not yet organized into a proper framework. Next step: wrap this into a proper Page Object class, combining the BasePage/LoginPage interface pattern with real Selenium locators inside.
