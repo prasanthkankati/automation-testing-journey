@@ -526,3 +526,125 @@ Current URL after login: https://www.saucedemo.com/inventory.html
 
 ### Why this matters for automation
 This is a real, working login automation — the exact shape of production Selenium tests, not yet organized into a proper framework. Next step: wrap this into a proper Page Object class, combining the BasePage/LoginPage interface pattern with real Selenium locators inside.
+
+---
+
+## Topic: Full Page Object Model — LoginPage with Selenium
+
+### Theory
+A complete Page Object class needs three things:
+1. **Implements an interface** (contract) — defines what actions the page supports
+2. **Holds its own WebDriver reference** — received via constructor, stored in a field, used by every method
+3. **Real locators inside each method** — found by inspecting the page (right-click → Inspect → read id/name/class)
+
+### Code — BasePage.java (the contract)
+```java
+package org.example;
+
+interface BasePage {
+    void open();
+    String getTitle();
+    void enterUsername(String username);
+    void enterPassword(String password);
+    void clickLogin();
+}
+```
+
+### Code — LoginPage.java (the implementation)
+```java
+package org.example;
+
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+
+class LoginPage implements BasePage {
+
+    WebDriver driver;
+
+    LoginPage(WebDriver driver) {
+        this.driver = driver;
+    }
+
+    public void open() {
+        driver.get("https://www.saucedemo.com");
+    }
+
+    public String getTitle() {
+        return driver.getTitle();
+    }
+
+    public void enterUsername(String username) {
+        driver.findElement(By.id("user-name")).sendKeys(username);
+    }
+
+    public void enterPassword(String password) {
+        driver.findElement(By.id("password")).sendKeys(password);
+    }
+
+    public void clickLogin() {
+        driver.findElement(By.id("login-button")).click();
+    }
+}
+```
+
+### Code — PageDemo.java (the runner)
+```java
+package org.example;
+
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+
+public class PageDemo {
+
+    public static void main(String[] args) {
+        WebDriver driver = new ChromeDriver();
+
+        LoginPage lp = new LoginPage(driver);
+        lp.open();
+        System.out.println(lp.getTitle());
+        lp.enterUsername("standard_user");
+        lp.enterPassword("secret_sauce");
+        lp.clickLogin();
+        System.out.println(lp.getTitle());
+
+        driver.quit();
+    }
+}
+```
+
+Swag Labs
+https://www.saucedemo.com/inventory.html
+
+
+
+### The constructor pattern — `this.driver = driver;`
+There are two things named `driver`: the constructor's **parameter** (incoming value) and the class's own **field** (stored on the object). `this.driver` refers to the field; plain `driver` refers to the parameter. This line stores the incoming driver into the object so every other method in the class can use it later.
+
+### Bugs I hit and fixed
+| Bug | Cause | Fix / Lesson |
+|---|---|---|
+| `driver.findElement(By.id(username))` | Confused the locator (where to find the field) with the data (what to type) — passed the actual username string as if it were an element's ID | Locator stays fixed (`By.id("user-name")`); the parameter is the data passed to `.sendKeys()`, not the locator itself |
+| Missing `.sendKeys(...)` after `findElement` | `findElement` alone only *finds* an element — does nothing with it | Must chain an action (`.sendKeys()`, `.click()`, etc.) after finding |
+| `lp.getTitle();` called but nothing printed | Return value was computed but discarded, not passed to `System.out.println` | Wrap method calls that return a value in `println` if you want to see the result |
+| Kept re-running the old file despite editing the new one | IntelliJ's run configuration dropdown was stuck pointing at a previous file (`FirstSeleniumTest`), regardless of which file was open or edited | Click the green triangle directly in the code editor's gutter (next to the class/main line) to force IntelliJ to run that specific file and reset the stuck configuration |
+
+### Why this matters
+This is the real, industry-standard Page Object Model structure — the exact pattern used in professional Selenium frameworks with hundreds of pages and tests. The runner class never touches locators or Selenium specifics directly; it only calls clean, readable method names. If saucedemo.com's HTML ever changes, only `LoginPage.java` needs updating — every test using it keeps working unchanged.
+
+
+
+
+**Output:**
+### The constructor pattern — `this.driver = driver;`
+There are two things named `driver`: the constructor's **parameter** (incoming value) and the class's own **field** (stored on the object). `this.driver` refers to the field; plain `driver` refers to the parameter. This line stores the incoming driver into the object so every other method in the class can use it later.
+
+### Bugs I hit and fixed
+| Bug | Cause | Fix / Lesson |
+|---|---|---|
+| `driver.findElement(By.id(username))` | Confused the locator (where to find the field) with the data (what to type) — passed the actual username string as if it were an element's ID | Locator stays fixed (`By.id("user-name")`); the parameter is the data passed to `.sendKeys()`, not the locator itself |
+| Missing `.sendKeys(...)` after `findElement` | `findElement` alone only *finds* an element — does nothing with it | Must chain an action (`.sendKeys()`, `.click()`, etc.) after finding |
+| `lp.getTitle();` called but nothing printed | Return value was computed but discarded, not passed to `System.out.println` | Wrap method calls that return a value in `println` if you want to see the result |
+| Kept re-running the old file despite editing the new one | IntelliJ's run configuration dropdown was stuck pointing at a previous file (`FirstSeleniumTest`), regardless of which file was open or edited | Click the green triangle directly in the code editor's gutter (next to the class/main line) to force IntelliJ to run that specific file and reset the stuck configuration |
+
+### Why this matters
+This is the real, industry-standard Page Object Model structure — the exact pattern used in professional Selenium frameworks with hundreds of pages and tests. The runner class never touches locators or Selenium specifics directly; it only calls clean, readable method names. If saucedemo.com's HTML ever changes, only `LoginPage.java` needs updating — every test using it keeps working unchanged.
