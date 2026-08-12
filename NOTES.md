@@ -648,3 +648,311 @@ There are two things named `driver`: the constructor's **parameter** (incoming v
 
 ### Why this matters
 This is the real, industry-standard Page Object Model structure — the exact pattern used in professional Selenium frameworks with hundreds of pages and tests. The runner class never touches locators or Selenium specifics directly; it only calls clean, readable method names. If saucedemo.com's HTML ever changes, only `LoginPage.java` needs updating — every test using it keeps working unchanged.
+
+# Automation Testing Journey — Notes (Today's Session)
+
+Topics covered today: Selenium WebDriver Setup → Polymorphism → First Real Selenium Test → LoginPage (Full Page Object Model) → InventoryPage (CSS Selectors & Dynamic Locators).
+
+---
+
+## Topic: Selenium WebDriver Setup + Polymorphism
+
+### Adding Selenium via Maven
+```xml
+<dependencies>
+    <dependency>
+        <groupId>org.seleniumhq.selenium</groupId>
+        <artifactId>selenium-java</artifactId>
+        <version>4.27.0</version>
+    </dependency>
+</dependencies>
+```
+Must be a sibling of `<properties>`, not nested inside it — each pom.xml section has a specific meaning to Maven's parser.
+
+### What a WebDriver actually does
+**Theory:** Selenium needs a "driver" — a translator between Java code and the browser. Since Selenium 4.6+, **Selenium Manager** handles this automatically — detects installed browser version, downloads the matching driver behind the scenes.
+
+**What happens when `new ChromeDriver()` runs:**
+1. Selenium Manager detects installed Chrome version
+2. Finds/downloads the matching driver executable
+3. Starts that driver as a background process
+4. That driver process opens a real Chrome window
+5. Sets up a live communication channel (WebDriver protocol, over HTTP) between Java code and the browser
+
+```java
+public class FirstSeleniumTest {
+    public static void main(String[] args) {
+        WebDriver driver = new ChromeDriver();
+        driver.get("https://www.saucedemo.com");
+        System.out.println("Page title is: " + driver.getTitle());
+        driver.quit();
+    }
+}
+```
+
+**Method reference:**
+- `driver.get(url)` — navigates to a URL
+- `driver.getTitle()` — returns the page's title
+- `driver.getCurrentUrl()` — returns the current URL (more reliable success check than title, since some sites keep the same title on every page)
+- `driver.quit()` — closes all windows AND properly ends the WebDriver session (always use this, not `close()`)
+
+### Polymorphism
+**Definition:** "Poly" = many, "morph" = forms. The same line of code can produce different behavior depending on the actual object behind it, even though the code itself never changes.
+
+```java
+public interface Animal {
+    void makeSound();
+}
+public class Dog implements Animal {
+    public void makeSound() { System.out.println("Woof!"); }
+}
+public class Cat implements Animal {
+    public void makeSound() { System.out.println("Meow!"); }
+}
+```
+```java
+Animal a1 = new Dog();
+Animal a2 = new Cat();
+a1.makeSound();   // Woof!
+a2.makeSound();   // Meow!
+```
+
+**In Selenium — WebDriver/ChromeDriver:**
+```java
+WebDriver driver = new ChromeDriver();
+driver.get("https://...");   // runs ChromeDriver's implementation of get()
+
+WebDriver driver = new FirefoxDriver();
+driver.get("https://...");   // same line, controls Firefox instead
+```
+
+**Key vocabulary:** `driver` is a variable reference — its *declared type* is the interface (`WebDriver`), but it *points to* an object of a concrete implementing class (`ChromeDriver`). This is polymorphism.
+
+**Method parameters accept any implementing class:**
+```java
+void runTest(WebDriver driver) {
+    driver.get("https://www.saucedemo.com");
+}
+runTest(new ChromeDriver());     // valid
+runTest(new FirefoxDriver());    // also valid, no code change needed
+```
+
+**How to recognize if something in code is an interface:**
+1. Ctrl+Click on the type name in IntelliJ — jumps to its definition
+2. IntelliJ shows a different icon for interfaces vs. classes
+3. Naming conventions are NOT reliable — `List`, `Map`, `Set`, `WebDriver` are all interfaces with no special prefix
+
+### Error and Solution
+**Error:** "Non-parseable POM" XML error.
+**Cause:** `<dependencies>` was nested inside `<properties>` instead of as a sibling.
+**Solution:** Moved `<dependencies>` to be a direct child of `<project>`, sitting right after `</properties>` closes.
+
+**Error:** Duplicate `<dependencies>` tag causing parse errors.
+**Cause:** Copy-paste error created two opening tags.
+**Solution:** XML requires exactly one matching closing tag per opening tag — removed the duplicate.
+
+### Interview Questions
+**Q1: What is polymorphism, and what are its two main types in Java?**
+A: The ability for the same interface/method call to behave differently depending on the actual object involved. Compile-time (static) — method overloading, resolved at compile time. Runtime (dynamic) — method overriding, resolved at runtime based on the actual object type.
+
+**Q2: How does `WebDriver driver = new ChromeDriver();` demonstrate polymorphism?**
+A: `driver` is declared as the interface type `WebDriver`, but references an actual `ChromeDriver` object. Calling `driver.get(...)` at runtime executes `ChromeDriver`'s specific implementation.
+
+**Q3: Why is this pattern essential for cross-browser testing frameworks?**
+A: All test code is written against the `WebDriver` interface, so only the object-creation line needs to change to target a different browser — every other line remains identical and reusable.
+
+**Q4: What's the difference between method overloading and method overriding?**
+A: Overloading — multiple methods, same name, different parameters, same class, compile-time resolved. Overriding — a subclass/implementer provides its own version of a parent/interface method, runtime resolved.
+
+**Q5: Can you have a variable of an interface type never assigned a concrete object?**
+A: Yes, it holds `null` until assigned — calling a method on it before assignment throws `NullPointerException`.
+
+**Q6: If WebDriver had ten implementing classes, would your test code need to know about all ten?**
+A: No — test code only needs to know the WebDriver interface's contract, never implementation details.
+
+---
+
+## Topic: LoginPage — Full Page Object Model
+
+### Code
+```java
+// BasePage.java
+interface BasePage {
+    void open();
+    String getTitle();
+    void enterUsername(String username);
+    void enterPassword(String password);
+    void clickLogin();
+}
+
+// LoginPage.java
+class LoginPage implements BasePage {
+    WebDriver driver;
+    LoginPage(WebDriver driver) { this.driver = driver; }
+    public void open() { driver.get("https://www.saucedemo.com"); }
+    public String getTitle() { return driver.getTitle(); }
+    public void enterUsername(String username) {
+        driver.findElement(By.id("user-name")).sendKeys(username);
+    }
+    public void enterPassword(String password) {
+        driver.findElement(By.id("password")).sendKeys(password);
+    }
+    public void clickLogin() {
+        driver.findElement(By.id("login-button")).click();
+    }
+}
+
+// PageDemo.java (runner)
+public class PageDemo {
+    public static void main(String[] args) {
+        WebDriver driver = new ChromeDriver();
+        LoginPage lp = new LoginPage(driver);
+        lp.open();
+        System.out.println(lp.getTitle());
+        lp.enterUsername("standard_user");
+        lp.enterPassword("secret_sauce");
+        lp.clickLogin();
+        System.out.println(lp.getTitle());
+        driver.quit();
+    }
+}
+```
+
+**Output:**
+```
+Swag Labs
+https://www.saucedemo.com/inventory.html
+```
+
+### The constructor pattern — `this.driver = driver;`
+Two things named `driver`: the constructor's **parameter** (incoming value) and the class's own **field** (stored on the object). `this.driver` refers to the field; plain `driver` refers to the parameter. This line stores the incoming driver so every other method in the class can use it later.
+
+### close() vs quit()
+| Method | What it does |
+|---|---|
+| `driver.close()` | Closes only the current tab/window; driver process may keep running in background |
+| `driver.quit()` | Closes all windows AND properly ends the entire WebDriver session |
+
+### Error and Solution
+**Error:** `driver.findElement(By.id(username))` — tried to use the username value itself as a locator.
+**Cause:** Confused the locator (fixed, "where to find") with the data (variable, "what to type").
+**Solution:** `driver.findElement(By.id("user-name")).sendKeys(username)` — fixed locator, variable data passed to sendKeys.
+
+**Error:** "Connection reset" `SocketException` warning after test.
+**Cause:** Used `driver.close()` instead of `driver.quit()` — background driver process wasn't shut down cleanly.
+**Solution:** Switched to `driver.quit()`, warning disappeared.
+
+**Error:** Verified login using `getTitle()` — printed identical value before and after.
+**Cause:** saucedemo.com uses the same page title on every page.
+**Solution:** Used `driver.getCurrentUrl()` instead — a value that actually changes on success.
+
+**Error:** Kept re-running an old file (`FirstSeleniumTest`) despite editing `PageDemo`.
+**Cause:** IntelliJ's run configuration dropdown was stuck pointing at a previous file.
+**Solution:** Clicked the green triangle directly in the code editor's gutter next to the class/main line — forces IntelliJ to run that specific file and resets the stuck configuration.
+
+### Interview Questions
+**Q1: What are the different Selenium locator strategies, and how do you pick one?**
+A: id, name, className, tagName, linkText, partialLinkText, cssSelector, xpath. Priority: id first → name → unique cssSelector → xpath as last resort.
+
+**Q2: XPath vs CSS Selector — which is faster, which is more powerful?**
+A: CSS is generally faster (native browser optimization). XPath is more powerful (can traverse up the DOM, match by visible text) but slower and more fragile to DOM changes.
+
+**Q3: What problem does Page Object Model actually solve?**
+A: Code duplication (same locators reused across tests) and maintainability (UI changes only require updating one page class, not every test that touches that element).
+
+**Q4: findElement() vs findElements()?**
+A: findElement — returns a single WebElement, throws NoSuchElementException if not found. findElements — returns a List<WebElement>, returns an empty list if none found.
+
+**Q5: How do you handle a dynamically-changing element ID?**
+A: Avoid the dynamic part — use cssSelector/xpath targeting a stable attribute (data-test, name), a partial match (`contains()` in XPath, `*=` in CSS), or locate relative to a stable parent element.
+
+**Q6: In a framework with 50+ page classes, how do you avoid repeating the same driver constructor everywhere?**
+A: Create a common (often abstract) BasePage class holding the WebDriver field and constructor once; every page class extends it and inherits that logic.
+
+---
+
+## Topic: InventoryPage — CSS Selectors and Dynamic Locators
+
+### Code
+```java
+public class InventoryPage {
+    WebDriver driver;
+    InventoryPage(WebDriver driver) { this.driver = driver; }
+
+    String getPageHeaderText() {
+        return driver.findElement(By.cssSelector("[data-test='title']")).getText();
+    }
+    void addItemToCart(String productId) {
+        driver.findElement(By.id(productId)).click();
+    }
+    String getCartBadgeCount() {
+        return driver.findElement(By.className("shopping_cart_badge")).getText();
+    }
+}
+```
+
+**Output (from runner calling login + inventory flow):**
+```
+Swag Labs
+https://www.saucedemo.com/inventory.html
+Products
+Cart count: 1
+```
+
+### Locator strategy reference
+| Strategy | Example | When to use |
+|---|---|---|
+| `By.id(...)` | `By.id("login-button")` | Best — fastest, most reliable, use whenever available |
+| `By.name(...)` | `By.name("username")` | Good fallback if no id, but a name attribute exists |
+| `By.className(...)` | `By.className("btn-primary")` | Risky if the class is shared/generic |
+| `By.cssSelector(...)` | `By.cssSelector("[data-test='title']")` | Flexible — target any attribute, combine classes, nested elements |
+| `By.xpath(...)` | `By.xpath("//span[text()='Products']")` | Most powerful, can locate by visible text — slower, more fragile |
+
+### data-test attributes
+Custom HTML attributes added by developers specifically as stable automation hooks, independent of CSS classes used for styling. Prefer them over generic classes when present.
+
+### Error and Solution
+**Error:** `NoSuchElementException` on `By.className("add-to-cart-sauce-labs-backpack")`.
+**Cause:** That string was the element's `id`, not its class.
+**Solution:** Changed to `By.id(productId)`, using the method's own parameter instead of a hardcoded string — fixes the bug and makes the method reusable for any product.
+
+**Error:** Compile error chaining `.getText()` onto `By.cssSelector(...)` directly.
+**Cause:** `By` objects don't have `getText()` — only `WebElement` (returned by findElement) does.
+**Solution:** `driver.findElement(By.cssSelector("...")).getText()` — getText() chained after findElement resolves the actual element.
+
+**Error:** Cart count computed but never printed.
+**Cause:** Return value discarded, not passed to println.
+**Solution:** Wrapped the call in `System.out.println(...)`.
+
+### Interview Questions
+**Q1: What are data-* attributes, and why do QA-friendly sites include them?**
+A: Custom attributes added specifically as stable automation hooks, independent of styling-related CSS classes. Best practice to prefer them when present.
+
+**Q2: Why accept a parameter (productId) instead of hardcoding a locator inside a method?**
+A: Hardcoding limits the method to one specific element. Building the locator from a parameter makes the same method reusable across many elements.
+
+**Q3: What does driver.findElement(...).getText() do step by step?**
+A: findElement locates and returns a WebElement; getText() reads that element's visible, rendered text as a String.
+
+**Q4: Why can't you call getText() on a By object directly?**
+A: By only describes how to locate an element — it isn't a found element. Only WebElement objects have interaction methods like getText(), click(), sendKeys().
+
+**Q5: Risk of By.xpath with visible text, e.g. //span[text()='Products']?**
+A: Fragile — breaks if displayed text changes (copy edits, translations), even if the element's structure is unchanged.
+
+**Q6: In POM, why doesn't a page class need a main method, and where does test logic live?**
+A: Page classes only expose available actions/data. Actual test sequencing and assertions live in a separate runner/test class.
+
+**Q7: How do you verify an action like "Add to Cart" actually worked, beyond the click succeeding?**
+A: Check for a resulting state change — e.g., read the cart badge count after the click and confirm it increased, rather than assuming success from the click alone.
+
+---
+
+## Environment reminder (from today)
+- Portfolio repo: github.com/prasanthkankati/automation-testing-journey
+- Standard push after each topic:
+```
+git add .
+git commit -m "Descriptive message"
+git push
+```
