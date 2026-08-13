@@ -956,3 +956,71 @@ git add .
 git commit -m "Descriptive message"
 git push
 ```
+
+---
+
+## Topic: TestNG — Converting to a Real Test Framework
+
+### Theory
+TestNG replaces a bare `main()` runner with proper testing structure:
+- **`@Test`** — marks a method as an actual test case; TestNG discovers and runs it automatically, with zero parameters allowed (unless using `@DataProvider`, a later topic)
+- **`@BeforeMethod`** / **`@AfterMethod`** — setup/teardown that runs automatically before/after *every* `@Test` method in the class
+- **`Assert.assertTrue(...)` / `assertEquals(...)`** — replaces manual `System.out.println` + eyeballing; TestNG automatically fails the test with a clear report if the assertion doesn't hold
+
+**Key structural rule:** one `@Test` method represents one complete test scenario (open → act → verify), not one individual action. Reuses existing Page Object classes entirely — the test class never contains locators or raw Selenium calls.
+
+### pom.xml — adding TestNG
+```xml
+<dependency>
+    <groupId>org.testng</groupId>
+    <artifactId>testng</artifactId>
+    <version>7.10.2</version>
+    <scope>test</scope>
+</dependency>
+```
+`<scope>test</scope>` means: only visible to code inside `src/test/java`, not `src/main/java`.
+
+### Maven's standard folder convention
+- **`src/main/java`** — reusable/production code (Page Object classes: LoginPage, InventoryPage, BasePage)
+- **`src/test/java`** — actual test classes (anything with `@Test`)
+
+This isn't arbitrary — Maven enforces it via dependency scoping, and every real framework follows this split.
+
+### Code — LoginTest.java (in src/test/java/org/example)
+```java
+package org.example;
+
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.testng.annotations.Test;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.AfterMethod;
+import org.testng.Assert;
+
+public class LoginTest {
+
+    WebDriver driver;
+
+    @BeforeMethod
+    public void setUp() {
+        driver = new ChromeDriver();
+    }
+
+    @Test
+    public void verifyLoginSuccess(){
+        LoginPage lp = new LoginPage(driver);
+        lp.open();
+        lp.enterUsername("standard_user");
+        lp.enterPassword("secret_sauce");
+        lp.clickLogin();
+        Assert.assertTrue(driver.getCurrentUrl().contains("inventory"));
+    }
+
+    @AfterMethod
+    public void close() {
+        driver.quit();
+    }
+}
+```
+
+**Output (via Maven test lifecycle):**
